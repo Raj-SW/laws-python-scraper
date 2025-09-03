@@ -9,6 +9,7 @@ class Settings:
     target_url: str
     username: str
     password: str
+    totp_endpoint: str | None
 
     supabase_url: str
     supabase_service_key: str
@@ -39,6 +40,7 @@ def load_settings() -> Settings:
     target_url = os.getenv("TARGET_URL", "").strip()
     username = os.getenv("LOGIN_USERNAME", "").strip()
     password = os.getenv("LOGIN_PASSWORD", "").strip()
+    totp_endpoint = os.getenv("TOTP_ENDPOINT", "").strip() or None
 
     supabase_url = os.getenv("SUPABASE_URL", "").strip()
     supabase_service_key = os.getenv("SUPABASE_SERVICE_KEY", os.getenv("SUPABASE_ANON_KEY", "")).strip()
@@ -66,6 +68,7 @@ def load_settings() -> Settings:
         target_url=target_url,
         username=username,
         password=password,
+        totp_endpoint=totp_endpoint,
         supabase_url=supabase_url,
         supabase_service_key=supabase_service_key,
         table_name=table_name,

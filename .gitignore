@@ -1,0 +1,70 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.env
+.venv/
+ENV/
+env/
+venv/
+.pipenv/
+Pipfile.lock
+
+# Logs
+*.log
+logs/
+
+# Unit test / coverage reports
+.tox/
+.coverage
+.coverage.*
+.pytest_cache/
+htmlcov/
+nosetests.xml
+coverage.xml
+
+# Type checkers
+.mypy_cache/
+.pyright/
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Playwright/test artifacts
+playwright-report/
+test-results/
+
+# Project-specific caches
+scraper/__pycache__/

@@ -55,6 +55,76 @@ class CourtScraper:
         # Submit via pressing Enter in password field
         await self.page.press("#plainTextPassword", "Enter")
         await self.page.wait_for_load_state("networkidle")
+        # Handle MauPass 2FA send security code step if present
+        try:
+            if "maupass.govmu.org/Account/SendSecurityCode" in (self.page.url or ""):
+                self.logger.info("2FA SendSecurityCode detected; clicking Submit and waiting")
+                selector = "div.kt-login__actions input[type='submit'][value='Submit']"
+                await self.page.wait_for_selector(selector, timeout=15000)
+                await self.page.click(selector)
+                await self.page.wait_for_load_state("networkidle")
+                # Small pause to observe transition after requesting code
+                await asyncio.sleep(2)
+
+                # After requesting security code, attempt to fetch TOTP from external endpoint
+                if self.settings.totp_endpoint:
+                    try:
+                        self.logger.info("Fetching TOTP code from endpoint")
+                        resp = await self.context.request.get(self.settings.totp_endpoint, timeout=15000)
+                        if not resp.ok:
+                            raise RuntimeError(f"TOTP endpoint returned {resp.status}")
+                        # Try to parse as JSON first, else plain text
+                        code: str | None = None
+                        try:
+                            data = await resp.json()
+                            # Accept common keys
+                            for k in ("code", "totp", "token", "otp"):
+                                v = data.get(k)
+                                if isinstance(v, str) and v.strip():
+                                    code = v.strip()
+                                    break
+                        except Exception:
+                            text_val = (await resp.text() or "").strip()
+                            if text_val:
+                                code = text_val
+                        if not code:
+                            raise RuntimeError("No TOTP code found in endpoint response")
+
+                        # Log the raw TOTP code for debugging/visibility (avoid in production)
+                        self.logger.info("TOTP code retrieved (length=%d)", len(code))
+                        self.logger.info("TOTP code: %s", code)
+                        self.logger.info("Waiting 2s before entering TOTP to observe flow")
+                        await asyncio.sleep(2)
+
+                        self.logger.info("Entering TOTP code into #Code")
+                        # Wait for Code input to be visible
+                        await self.page.wait_for_selector("#Code, input#Code[name='Code']", timeout=20000)
+                        await self.page.fill("#Code", code)
+                        self.logger.info("TOTP code entered; waiting 1s before submitting")
+                        await asyncio.sleep(1)
+                        # Click Submit on the verification page
+                        submit_selector = "input[type='submit'].btn.btn-primary.btn-elevate.kt-login__btn-primary, input[type='submit'][value='Submit']"
+                        await self.page.wait_for_selector(submit_selector, timeout=15000)
+                        self.logger.info("Clicking final Submit for TOTP verification")
+                        await self.page.click(submit_selector)
+                        await self.page.wait_for_load_state("networkidle")
+                        # Small pause to observe the post-submit state
+                        await asyncio.sleep(2)
+
+                        # Check whether we appear to have left the 2FA page
+                        still_on_2fa = "SendSecurityCode" in (self.page.url or "")
+                        try:
+                            code_field = await self.page.query_selector("#Code")
+                        except Exception:
+                            code_field = None
+                        if not still_on_2fa and not code_field:
+                            self.logger.info("TOTP verification successful; continuing")
+                        else:
+                            self.logger.warning("TOTP verification may not have completed; still on 2FA page")
+                    except Exception as e:
+                        self.logger.error(f"TOTP handling failed: {e}")
+        except Exception as e:
+            self.logger.warning(f"2FA SendSecurityCode step skipped or failed: {e}")
         self.logger.info("Login complete")
 
     async def navigate_to_page(self, page_index: int) -> None:
