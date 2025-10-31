@@ -20,6 +20,7 @@ class Judgment:
     document_number: str
     delivered_on: str
     pdf_url: str
+    pdf_preview_url: str
     page_index: int
 
 
@@ -144,6 +145,19 @@ class CourtScraper:
             doc_no = (await doc_el.inner_text()).strip() if doc_el else ""
             delivered_on = (await date_el.inner_text()).strip() if date_el else ""
 
+            # Extract preview URL from anchor inside the document-number cell
+            preview_href = None
+            try:
+                preview_link_el = await row.query_selector("td.views-field-field-document-number-hidden a")
+                if preview_link_el:
+                    preview_href = await preview_link_el.get_attribute("href")
+            except Exception:
+                preview_href = None
+            if preview_href:
+                pdf_preview_url = preview_href if preview_href.startswith("http") else f"https://supremecourt.govmu.org{preview_href}"
+            else:
+                pdf_preview_url = ""
+
             link_el = await row.query_selector("td.views-field-nothing-1 a.faDownload, td .faDownload")
             if not link_el:
                 continue
@@ -151,7 +165,7 @@ class CourtScraper:
             if not href:
                 continue
             pdf_url = href if href.startswith("http") else f"https://supremecourt.govmu.org{href}"
-            yield Judgment(title=title, document_number=doc_no, delivered_on=delivered_on, pdf_url=pdf_url, page_index=0)
+            yield Judgment(title=title, document_number=doc_no, delivered_on=delivered_on, pdf_url=pdf_url, pdf_preview_url=pdf_preview_url, page_index=0)
 
     async def download_pdf_bytes(self, url: str) -> Tuple[bytes, str]:
         # Use context's request for lightweight download
@@ -199,6 +213,7 @@ class CourtScraper:
                 "page_number": j.page_index + 1,
                 "extracted_at": extracted_at,
                 "download_url": j.pdf_url,
+            "pdf_preview_url": j.pdf_preview_url or None,
             }
             self.sb.insert_judgment(record)
         except Exception as e:
